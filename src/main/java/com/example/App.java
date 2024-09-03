@@ -38,7 +38,7 @@ public class App {
             System.out.println("Received request: " + method + " " + path);
             System.out.println("Headers: " + ctx.request().headers());
 
-            // Forward the request to JupyterLab
+            // Forward the request
             webClient.request(ctx.request().method(), path)
                     .putHeaders(ctx.request().headers())
                     .sendBuffer(ctx.getBody(), ar -> {
@@ -63,7 +63,7 @@ public class App {
 
             httpClient.webSocket(options, ws -> {
                 if (ws.succeeded()) {
-                    System.out.println("WebSocket connection established with JupyterLab");
+                    System.out.println("WebSocket connection established");
                     setupWebSocket(webSocket, ws.result());
                 } else {
                     System.err.println("Failed to establish WebSocket connection: " + ws.cause().getMessage());
@@ -82,7 +82,7 @@ public class App {
     }
 
     private static void handleSuccessfulResponse(io.vertx.ext.web.client.HttpResponse<io.vertx.core.buffer.Buffer> response, io.vertx.core.http.HttpServerResponse clientResponse) {
-        System.out.println("Successfully received response from JupyterLab");
+        System.out.println("Successfully received response");
         System.out.println("Response status code: " + response.statusCode());
         System.out.println("Response headers: " + response.headers());
 
@@ -117,26 +117,26 @@ public class App {
     }
 
     private static void handleFailedResponse(Throwable cause, io.vertx.ext.web.RoutingContext ctx) {
-        System.err.println("Failed to get response from JupyterLab: " + cause.getMessage());
+        System.err.println("Failed to get response: " + cause.getMessage());
         ctx.response().setStatusCode(500).end("Internal Server Error");
     }
 
-    private static void setupWebSocket(io.vertx.core.http.ServerWebSocket clientWs, io.vertx.core.http.WebSocket jupyterWs) {
-        clientWs.binaryMessageHandler(jupyterWs::writeBinaryMessage);
-        jupyterWs.binaryMessageHandler(clientWs::writeBinaryMessage);
+    private static void setupWebSocket(io.vertx.core.http.ServerWebSocket clientWs, io.vertx.core.http.WebSocket serverWs) {
+        clientWs.binaryMessageHandler(serverWs::writeBinaryMessage);
+        serverWs.binaryMessageHandler(clientWs::writeBinaryMessage);
 
-        clientWs.textMessageHandler(jupyterWs::writeTextMessage);
-        jupyterWs.textMessageHandler(clientWs::writeTextMessage);
+        clientWs.textMessageHandler(serverWs::writeTextMessage);
+        serverWs.textMessageHandler(clientWs::writeTextMessage);
 
-        clientWs.closeHandler(v -> jupyterWs.close());
-        jupyterWs.closeHandler(v -> clientWs.close());
+        clientWs.closeHandler(v -> serverWs.close());
+        serverWs.closeHandler(v -> clientWs.close());
 
         clientWs.exceptionHandler(e -> {
             System.err.println("Client WebSocket error: " + e.getMessage());
-            jupyterWs.close();
+            serverWs.close();
         });
-        jupyterWs.exceptionHandler(e -> {
-            System.err.println("JupyterLab WebSocket error: " + e.getMessage());
+        serverWs.exceptionHandler(e -> {
+            System.err.println("WebSocket error: " + e.getMessage());
             clientWs.close();
         });
     }
